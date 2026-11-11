@@ -55,15 +55,15 @@ Maven isn't needed: `./mvnw` downloads it.
    spacing, typos), and ends with a short "Dev loop" note: what changed, what it found, any
    question. Then say **"fix the annotations"**.
 
-Want to see an error reported? Break something in a view so that a click throws, click it,
-and send a prompt: the briefing carries the exception's root cause and the first frame in
-your code.
+Want to see an error reported? Open **Error Demo** in the menu and click "Add sample tasks":
+it has a bug that throws on the server. Send Claude a prompt, and the briefing carries the
+exception's root cause and the line in `ErrorDemoView.java` it came from.
 
 ## What's where
 
 | Path | What |
 |---|---|
-| `src/` | The generated Vaadin app: a task list (`com.porotype.examplefeature`). |
+| `src/` | The generated Vaadin app: a task list (`com.porotype.examplefeature`), plus an Error Demo view with a deliberate bug (`com.porotype.devloopdemo`). |
 | `devloop/` | The extended daemon (`daemon/`), its build (`build.sh`) and client (`vdx`). [README](devloop/README.md). |
 | `.vaadin/vaadin-dev` | The stock Dev Loop client from `mvn vaadin:install-dev-cli`, with a marked block at the top that hands every command to `devloop/vdx`. Reinstalling the CLI removes that block. |
 | `.claude/hooks/devloop_events.py`, `.claude/settings.json` | The hooks: the briefing at each prompt, and the marks that attribute Claude's own edits. |
