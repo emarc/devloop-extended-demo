@@ -33,9 +33,29 @@ with the project, without taking them over and without hijacking the conversatio
 4. **One short "Dev loop" note at the end of your reply**, only if there is something to say:
    - what changed, in one line;
    - what you fixed silently, if anything;
-   - findings and questions.
+   - **proposed actions, as a numbered list** the developer can answer with "all", "1 and 3"
+     or "none" (see below);
+   - questions that are really about intent, where no option is clearly right.
 
-   Skip the note entirely when everything checks out and nothing was fixed.
+   Skip the note entirely when everything checks out, nothing was fixed and nothing is
+   proposed.
+
+   Proposed actions:
+   - One line each, concrete enough to say yes to: "Reformat Copilot's lines in About.java and
+     MainLayout.java, rename `loremIpsumDolorSitAm` → `description`".
+   - Turn a question with an obvious answer into an action with that answer: not "should the
+     avatar say Dev Loop Demo too?" but "Make the header avatar say Dev Loop Demo (it still
+     says My Application)".
+   - Pending annotations are one item: "Fix the 3 pending annotations". Offering is fine;
+     doing it without a yes is not.
+   - Include the ask-later items worth doing now (tests, screenshots of the touched views).
+   - At most about five, most useful first, with stable numbers within the reply. End with one
+     line: "Reply with the numbers (or "all")."
+   - Not answering is an answer for now: keep the items in the review notes and offer them
+     again only when relevant (see "Don't nag"). When the developer later says "do 2", read
+     the numbering from your last note or the review notes.
+   - When the developer keeps choosing the same kind of item (reformatting, renames), offer
+     once to remember it as standing permission.
 5. **Record and mark reviewed.**
    - Write anything still open (unanswered questions, deferred fixes, tests to add) to
      `.vaadin/review-notes.md`, replacing what is resolved, and delete the file when nothing
@@ -60,10 +80,11 @@ with the project, without taking them over and without hijacking the conversatio
 - **Silently** (and say so in the note): restoring indentation and line breaks, renaming
   Copilot's placeholder variable names, fixing an obvious typo in UI text. Only if the
   developer has granted standing permission for these (check memory); without it, propose them
-  as one batch.
-- **Ask now**, in the note at the end of the reply, as one question: anything about intent,
-  such as a heading's purpose, a layout choice, wording beyond a typo, or a change that alters
-  what the UI does. Offer the likely options; use AskUserQuestion when the choices are discrete.
+  as one numbered action.
+- **Ask now**, in the note at the end of the reply: anything about intent, such as a heading's
+  purpose, a layout choice, wording beyond a typo, or a change that alters what the UI does.
+  When one answer is clearly the likely one, make it a proposed action; otherwise ask, with the
+  options. Don't open a question dialog for these: the developer may want to move on.
 - **Ask later** (write it to the review notes and mention it once): tests to add, refactoring a
   Copilot-built structure. Raise it again when the developer next works in that area, or when
   committing.

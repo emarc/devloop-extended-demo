@@ -174,8 +174,10 @@ def briefing():
         ["Dev loop — collected while you were away:"] + lines +
         ["Handle per the review-dev-changes skill: answer the developer's prompt first; "
          "review unreviewed changes alongside it (re-read those files before editing them); "
-         "fix silently only what the skill allows, otherwise add one short 'Dev loop' note "
-         "with findings/questions at the end of your reply. Don't fix annotations unprompted."])
+         "fix silently only what the skill allows, otherwise end your reply with one short "
+         "'Dev loop' note: what changed, then numbered proposed actions (cleanups, the "
+         "annotation batch, fixes) the developer can answer with 'all' or '1 and 3'. "
+         "Don't fix annotations unprompted."])
 
 
 def midturn():
