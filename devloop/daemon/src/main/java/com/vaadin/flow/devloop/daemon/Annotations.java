@@ -57,6 +57,15 @@ final class Annotations {
         return file;
     }
 
+    /** The annotations still to do, in file order; empty if unreadable. */
+    List<Note> pending() {
+        Map<String, Note> now = read();
+        return now == null ? List.of()
+                : now.values().stream()
+                        .filter(note -> note.status().equals("pending"))
+                        .toList();
+    }
+
     /** Emits the differences since the last call; false if unreadable. */
     synchronized boolean report(String relativePath) {
         Map<String, Note> now = read();

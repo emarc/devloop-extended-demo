@@ -79,6 +79,7 @@ The events the journal records, each with `seq`, `at`, `type`, `source`, `summar
 | `copilot.apply` | daemon | The bridge applying a Copilot write 500 ms after it lands, as an IDE plugin's hot-swap would. Without it, Copilot reports success and nothing goes live. |
 | `trigger.NAME` | app | A registered log pattern matched. |
 | `classes.stale` | daemon | `start` found `target/classes` older than the sources, or classes whose source is gone (changed while no daemon ran: a `git checkout`, a revert). Orphans are deleted and the start recompiles; see `StaleClasses`. |
+| `copilot.annotations.fix-requested` | developer | "Send to Claude" in Copilot's Claude panel (`ClaudePanel`), with the pending annotation ids and the developer's message. Claude's `vdx watch` on this type wakes it at once; without a watch, the next prompt's briefing carries it. |
 | `agent.bash` | agent | Start/end marks around Claude's Bash calls, for attribution (below). |
 
 ### How a change gets its author
@@ -144,6 +145,21 @@ briefing) and `review` (developer changes Claude has reviewed; moved only by
 running: any `vaadin-dev` command would spawn one. Under a stock daemon `events` is an unknown
 command, so they stay silent.
 
+### The Claude panel
+
+- **Panel:** the bridge serves `devloop/copilot-plugin.js` and two endpoints under
+  `/devloop/` on its loopback port (`ClaudePanel`), and passes the script URL to the app as
+  `vaadin.devloop.copilotPlugin`. The app adds the script to its page
+  (`DevLoopCopilotPlugin`). The script registers a Copilot panel through
+  `window.Vaadin.copilot.plugins`, the API Copilot's own panels use, after Copilot's bootstrap
+  (which resets that array). Only loopback origins may post, since what's posted reaches
+  Claude's context.
+- **Delivery is the journal:** the press is a `copilot.annotations.fix-requested` event. Claude
+  keeps `vdx watch --type copilot.annotations.fix-requested` running under its Monitor tool
+  (re-armed with `--since` when the monitor expires, at most every 30 minutes), so a press
+  reaches it within a moment, even while it's idle. Without a watch, the next prompt's briefing
+  carries it. The briefing leaves out requests whose annotations are all resolved.
+
 ### The extension seam
 
 The app can contribute verbs. It opens a second connection, `<token> extend NAME VERB[,…]`,
@@ -197,6 +213,8 @@ Observability Kit findings (`vdx o11y`) from the original prototype come back.
   as here.
 - Copilot → daemon write notifications, replacing the IDE-plugin impersonation.
 - Hook recipes for agents in the installed `vaadin-devloop` skill.
+- A supported way to add a Copilot panel from outside the app (here the app injects a
+  script), and a documented panel contract (`requestLayoutUpdate` is required).
 - Name the cached HotswapAgent jar so Copilot recognises it, and agree with Copilot on how it
   detects the dev loop's hotswap (it currently requires JDWP).
 - `start` should compile sources that changed while no daemon ran, and drop classes whose
@@ -207,7 +225,8 @@ Observability Kit findings (`vdx o11y`) from the original prototype come back.
 ## Files
 
 - `daemon/src/main/java/com/vaadin/flow/devloop/daemon/`: new are `Events`, `LogTail`,
-  `SourceWatch`, `Attribution`, `CopilotBridge`, `Annotations`, `StaleClasses`, `MiniJson`.
+  `SourceWatch`, `Attribution`, `CopilotBridge`, `Annotations`, `StaleClasses`, `ClaudePanel`,
+  `MiniJson`; the panel script is in `daemon/src/main/resources/devloop/`.
   Changed are `Daemon` (verbs, event emission, extension seam, the stale-class check on start),
   `Launch` (JDWP flag), `HotswapAgentJar` (cache file name) and `AppProcess` (crash event). Everything
   else is untouched upstream `25.4.0-alpha5` source.

@@ -141,6 +141,7 @@ final class CopilotBridge {
                     new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
                     16);
             server.createContext("/copilot", this::handle);
+            server.createContext("/devloop/", new ClaudePanel(root)::handle);
             server.setExecutor(null);
             server.start();
             // Copilot derives the project from the dot file's location - its
@@ -150,6 +151,13 @@ final class CopilotBridge {
             slotFile = root.resolve(".eclipse").resolve(".copilot-plugin");
             ensureDotFile();
             System.setProperty(DOT_FILE_PROPERTY, dotFile.toString());
+            InetAddress bound = server.getAddress().getAddress();
+            String host = bound instanceof java.net.Inet6Address
+                    ? "[" + bound.getHostAddress() + "]"
+                    : bound.getHostAddress();
+            System.setProperty(ClaudePanel.PLUGIN_PROPERTY, "http://" + host
+                    + ":" + server.getAddress().getPort()
+                    + "/devloop/copilot-plugin.js");
             System.out.println("copilot bridge on port "
                     + server.getAddress().getPort() + ", dot file " + dotFile);
         } catch (IOException e) {

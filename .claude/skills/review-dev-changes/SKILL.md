@@ -97,8 +97,25 @@ with the project, without taking them over and without hijacking the conversatio
 ## UI annotations: collect, fix in one batch
 
 Annotations are the developer's to-do list for the UI. They are collected, not acted on one by
-one. The briefing shows the pending count and text; do not fix them unprompted. When the
-developer asks to fix them:
+one. The briefing shows the pending count and text; do not fix them unprompted. The developer
+asks either in a prompt or with **"Send to Claude"** in Copilot's Claude panel. That press is
+a `copilot.annotations.fix-requested` event in the journal, with the annotation ids and an
+optional message. It reaches you through your watch (below) as soon as it happens, or else as a
+line at the top of the next briefing. Treat it like a prompt: do the batch now; if it arrives
+while you are busy, finish the current step first.
+
+**Keep a watch on it** while the app runs: once the app is started, start a Monitor (description
+"Send to Claude presses", the 30-minute maximum timeout) on
+
+```bash
+devloop/vdx watch --type copilot.annotations.fix-requested --since <last seq you saw>
+```
+
+Each press prints one line (`#N time copilot.annotations.fix-requested Send to Claude: fix 2
+pending annotation(s) - "message"`). When the monitor expires, re-arm it with `--since` the last
+seq it printed, so a press in between isn't lost. Only arm it while a daemon is running:
+`vdx watch` would otherwise start one. A request whose annotations are all resolved is done;
+the briefing leaves it out. When the developer asks to fix them:
 
 1. Read all pending ones from `vaadin-copilot-comments.json` (keyed by view path, each with
    `content`, `viewFilePath` and `selectedComponents[].treePath`/`displayName`).

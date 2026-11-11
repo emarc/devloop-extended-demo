@@ -43,8 +43,8 @@ Maven isn't needed: `./mvnw` downloads it.
    change it). The first start takes a minute or two while Maven downloads dependencies.
 
 2. **Change the UI with Copilot.** Open http://localhost:8080, open Copilot (the Vaadin
-   button at the bottom-right), select a component and ask for a change: "make the Create button say Add task", "add a heading
-   above the grid". Copilot's edits go live right away.
+   button at the bottom-right), select a component and ask for a change: "make the Create
+   button say Add task", "add a heading above the grid". Copilot's edits go live right away.
 
 3. **Add a UI annotation.** In Copilot's annotations mode, select a component and write a
    note, such as "this should be primary-colored". Annotations are a to-do list for Claude; it
@@ -53,7 +53,13 @@ Maven isn't needed: `./mvnw` downloads it.
 4. **Send Claude any prompt.** "What's new?" works, and so does real work. Claude answers
    your prompt, reviews what you and Copilot changed (formatting, generated variable names,
    spacing, typos), and ends with a short "Dev loop" note: what changed, what it found, any
-   question. Then say **"fix the annotations"**.
+   question, as numbered actions you can answer with "all" or "1 and 3".
+
+5. **Send the annotations to Claude from the browser.** Copilot's toolbar has a **Claude**
+   panel (the sparkles icon, in edit and test mode) listing the pending annotations. Add a
+   note if you like and press **Send to Claude**. Claude keeps a dev-loop watch on these
+   presses once the app runs, so it starts on them right away, even while idle; if no watch
+   is running, it picks them up at your next prompt.
 
 Want to see an error reported? Open **Error Demo** in the menu and click "Add sample tasks":
 it has a bug that throws on the server. Send Claude a prompt, and the briefing carries the
@@ -66,6 +72,7 @@ exception's root cause and the line in `ErrorDemoView.java` it came from.
 | `src/` | The generated Vaadin app: a task list (`com.porotype.examplefeature`), plus an Error Demo view with a deliberate bug (`com.porotype.devloopdemo`). |
 | `devloop/` | The extended daemon (`daemon/`), its build (`build.sh`) and client (`vdx`). [README](devloop/README.md). |
 | `.vaadin/vaadin-dev` | The stock Dev Loop client from `mvn vaadin:install-dev-cli`, with a marked block at the top that hands every command to `devloop/vdx`. Reinstalling the CLI removes that block. |
+| `src/main/java/com/porotype/devloopdemo/DevLoopCopilotPlugin.java` | Adds the Claude panel to Copilot when the daemon runs the app; nothing otherwise. |
 | `.claude/hooks/devloop_events.py`, `.claude/settings.json` | The hooks: the briefing at each prompt, and the marks that attribute Claude's own edits. |
 | `.claude/skills/review-dev-changes/` | What Claude does with the briefing: review, fix silently or ask, batch the annotations, keep your changes in their own commit. |
 | `.claude/skills/vaadin-devloop/` | The stock Dev Loop skill (generated): how Claude starts the app and applies its edits. |

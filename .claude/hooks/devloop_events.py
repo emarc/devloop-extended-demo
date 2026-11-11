@@ -105,19 +105,46 @@ def uncommitted(paths):
         return set(paths)
 
 
-def pending_annotations():
+def annotations():
     try:
         with open(ANNOTATIONS) as f:
             data = json.load(f)
     except (OSError, ValueError):
         return []
+    return [(view, a) for view, items in data.items()
+            for a in (items if isinstance(items, list) else [])
+            if a.get("status", "pending") == "pending"]
+
+
+def pending_annotations():
     notes = []
-    for view, items in data.items():
-        for a in items if isinstance(items, list) else []:
-            if a.get("status", "pending") == "pending":
-                comps = ", ".join(c.get("displayName", "?") for c in a.get("selectedComponents", []))
-                notes.append(f'"{a.get("content", "")}" on {a.get("viewPath", view)}' + (f" → {comps}" if comps else ""))
+    for view, a in annotations():
+        comps = ", ".join(c.get("displayName", "?") for c in a.get("selectedComponents", []))
+        notes.append(f'"{a.get("content", "")}" on {a.get("viewPath", view)}' + (f" → {comps}" if comps else ""))
     return notes
+
+
+def fix_requests(evs):
+    """'Send to Claude' presses in Copilot's Claude panel: the developer asking
+    for the annotation batch fix, so they are requests, not news."""
+    # Claude's watch may have handled one already: a request whose annotations
+    # are all resolved by now is done.
+    pending = {a.get("id") for _, a in annotations()}
+    out = []
+    for e in evs:
+        if e["type"] != "copilot.annotations.fix-requested":
+            continue
+        d = e["data"]
+        ids = [i for i in (d.get("ids") or "").split(",") if i]
+        if ids and not pending.intersection(ids):
+            continue
+        line = (f'The developer pressed "Send to Claude" in Copilot at {e["at"][11:16]} UTC: '
+                f'fix the pending UI annotations now (ids {d.get("ids") or "none"}), per the '
+                f'review-dev-changes skill.')
+        if d.get("message"):
+            line += f' Their message: "{d["message"]}"'
+        out.append(line)
+    return out
 
 
 def describe(path, f):
@@ -141,6 +168,9 @@ def briefing():
     windows = bash_windows(review_since)
     lines = []
 
+    requested = fix_requests(new["events"])
+    lines += requested
+
     problems = [e for e in new["events"] if e["type"] in PROBLEMS]
     if problems:
         lines.append("Problems in the running app (new):")
@@ -160,7 +190,8 @@ def briefing():
     pending = pending_annotations()
     if pending:
         lines.append(f"Pending UI annotations: {len(pending)}" + (f" ({len(added)} new)" if added else "")
-                     + " — collected for a batch fix; fix only when the developer asks.")
+                     + (" — requested above: fix them now." if requested else
+                        " — collected for a batch fix; fix only when the developer asks."))
         lines += [f"    {n[:160]}" for n in pending[:6]]
         if len(pending) > 6:
             lines.append(f"    … {len(pending) - 6} more in vaadin-copilot-comments.json")
@@ -177,7 +208,7 @@ def briefing():
          "fix silently only what the skill allows, otherwise end your reply with one short "
          "'Dev loop' note: what changed, then numbered proposed actions (cleanups, the "
          "annotation batch, fixes) the developer can answer with 'all' or '1 and 3'. "
-         "Don't fix annotations unprompted."])
+         "Fix annotations only when asked (a 'Send to Claude' press is asking)."])
 
 
 def midturn():
@@ -188,7 +219,7 @@ def midturn():
     changes = developer_changes(new["events"], windows)
     problems = [e for e in new["events"] if e["type"] in PROBLEMS]
     added = [e for e in new["events"] if e["type"].startswith("copilot.annotation.")]
-    bits = []
+    bits = fix_requests(new["events"])
     if changes:
         bits.append("the developer changed " + ", ".join(os.path.basename(p) for p in changes)
                     + " (re-read before editing; review at the end of this task)")
