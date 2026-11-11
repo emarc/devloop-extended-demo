@@ -20,3 +20,4 @@ vite.generated.ts
 **/.eclipse/.copilot-plugin
 # Review notes the agent keeps between sessions (see the review-dev-changes skill)
 **/.vaadin/review-notes.md
+__pycache__/
