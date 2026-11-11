@@ -102,10 +102,20 @@ public final class HotswapAgentJar {
 
     /**
      * Where {@link #VERSION} lives once it has been provisioned.
+     * <p>
+     * Prototype change: the version is the directory, not part of the file
+     * name. Copilot only recognises HotswapAgent from a {@code -javaagent}
+     * path ending in {@code hotswap-agent.jar} ({@code JdkInfo}), and
+     * otherwise warns "hotswap is not enabled" on every Java edit.
      *
      * @return the path of the cached agent jar, which need not exist yet
      */
     public static Path cachedJar() {
+        return cacheDir().resolve(VERSION).resolve("hotswap-agent.jar");
+    }
+
+    /** Where upstream caches {@link #VERSION}; reused rather than downloaded. */
+    private static Path legacyCachedJar() {
         return cacheDir().resolve("hotswap-agent-" + VERSION + ".jar");
     }
 
@@ -138,6 +148,19 @@ public final class HotswapAgentJar {
         }
 
         Path jar = cachedJar();
+        Path legacy = legacyCachedJar();
+        if (!Files.isRegularFile(jar) && Files.isRegularFile(legacy)
+                && SHA256.equalsIgnoreCase(sha256(legacy))) {
+            Files.createDirectories(jar.getParent());
+            Path temp = Files.createTempFile(jar.getParent(),
+                    "hotswap-agent-", ".part");
+            try {
+                Files.copy(legacy, temp, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(temp, jar, StandardCopyOption.REPLACE_EXISTING);
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+        }
         if (Files.isRegularFile(jar)) {
             String actual = sha256(jar);
             if (!SHA256.equalsIgnoreCase(actual)) {

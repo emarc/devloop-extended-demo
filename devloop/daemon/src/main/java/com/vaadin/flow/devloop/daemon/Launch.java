@@ -1272,6 +1272,15 @@ final class Launch {
         if (java.jbr()) {
             flags.add("-XX:+AllowEnhancedClassRedefinition");
         }
+        // Prototype extension: Copilot counts hotswap as enabled only when the
+        // JVM runs under a debugger agent (it looks for "jdwp" in the input
+        // arguments), since that is how an IDE hotswaps. The loop does not
+        // need it, but without it Copilot warns on every Java edit. Loopback,
+        // a random port and no suspend: a debugger can attach, nothing waits.
+        if (!"false".equals(System.getProperty("vaadin.dev.jdwp"))) {
+            flags.add("-agentlib:jdwp=transport=dt_socket,server=y,"
+                    + "suspend=n,address=127.0.0.1:0");
+        }
         // Vaadin: the plugin declares itself for Vaadin 23-24, though the
         // pinned release does look for the 25 Hotswapper as well - so the
         // reason it stays off
