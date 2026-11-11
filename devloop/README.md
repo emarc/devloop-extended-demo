@@ -169,6 +169,10 @@ Observability Kit findings (`vdx o11y`) from the original prototype come back.
   root.
 - **No Windows support for `vdx`.** The hand-off block is only in the bash `vaadin-dev`;
   `vaadin-dev.cmd`/`.ps1` still spawn the stock daemon.
+- **`-XX:HotswapAgent` in `JAVA_TOOL_OPTIONS`** (some JetBrains Runtime setups set it for every
+  JVM) crashes the `jar` tool and makes the app load HotswapAgent twice (`ClassFormatError:
+  Duplicate method name "$$ha$…"`). `vdx` and `build.sh` drop that one flag. The stock daemon
+  doesn't, so it's an upstream issue too.
 - **No tests for the daemon additions yet.** Upstream's tests for the stock classes aren't
   copied here either.
 
@@ -181,6 +185,8 @@ Observability Kit findings (`vdx o11y`) from the original prototype come back.
   as here.
 - Copilot → daemon write notifications, replacing the IDE-plugin impersonation.
 - Hook recipes for agents in the installed `vaadin-devloop` skill.
+- Ignore (or strip) `-XX:HotswapAgent` from an inherited `JAVA_TOOL_OPTIONS` when launching the
+  app, since the daemon adds HotswapAgent itself.
 
 ## Files
 

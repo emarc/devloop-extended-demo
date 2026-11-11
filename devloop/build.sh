@@ -12,6 +12,17 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 out="$here/target"
+# A -XX:HotswapAgent flag in JAVA_TOOL_OPTIONS (some JetBrains Runtime setups
+# enable it for every JVM) breaks both the build (jar crashes with HotswapAgent
+# loaded) and the app (the daemon adds HotswapAgent itself; loaded twice, both
+# copies instrument the same classes: ClassFormatError). Drop just that flag.
+if [[ "${JAVA_TOOL_OPTIONS:-}" == *-XX:HotswapAgent* ]]; then
+    kept=()
+    for flag in $JAVA_TOOL_OPTIONS; do
+        [[ "$flag" == -XX:HotswapAgent* ]] || kept+=("$flag")
+    done
+    if (( ${#kept[@]} )); then export JAVA_TOOL_OPTIONS="${kept[*]}"; else unset JAVA_TOOL_OPTIONS; fi
+fi
 
 maven_lib() {
     local mvn dir candidates=()
