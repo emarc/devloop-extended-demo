@@ -148,12 +148,13 @@ command, so they stay silent.
 ### The Claude panel
 
 - **Panel:** the bridge serves `devloop/copilot-plugin.js` and two endpoints under
-  `/devloop/` on its loopback port (`ClaudePanel`), and passes the script URL to the app as
-  `vaadin.devloop.copilotPlugin`. The app adds the script to its page
-  (`DevLoopCopilotPlugin`). The script registers a Copilot panel through
+  `/devloop/` on its loopback port (`ClaudePanel`), and passes their URL to the app as
+  `vaadin.devloop.copilotPlugin`. The browser never talks to that port: in a container or on a
+  remote host it can't reach it. The app (`DevLoopCopilotPlugin`) adds the script to its page
+  and forwards `/devloop/*` to the daemon, accepting only same-origin requests, since what's
+  posted reaches Claude's context. The script registers a Copilot panel through
   `window.Vaadin.copilot.plugins`, the API Copilot's own panels use, after Copilot's bootstrap
-  (which resets that array). Only loopback origins may post, since what's posted reaches
-  Claude's context.
+  (which resets that array). The panel shows in Copilot's edit and test modes.
 - **Delivery is the journal:** the press is a `copilot.annotations.fix-requested` event. Claude
   keeps `vdx watch --type copilot.annotations.fix-requested` running under its Monitor tool
   (re-armed with `--since` when the monitor expires, at most every 30 minutes), so a press
