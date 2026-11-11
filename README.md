@@ -1,135 +1,87 @@
-# My Application
+# Dev Loop, extended: a demo
 
-A Spring Boot + Vaadin project. Build your UI in pure Java — no HTML, no JavaScript.
+A plain [start.vaadin.com](https://start.vaadin.com) project (Vaadin 25.4, Flow + Spring Boot)
+with a prototype that lets Claude Code **notice what you changed while it was idle**: your
+edits with Vaadin Copilot in the browser, your Copilot UI annotations, your IDE edits, and the
+errors the running app threw. At your next prompt Claude gets a short "Dev loop" briefing and
+reviews those changes alongside whatever you asked.
 
-> **New to Vaadin?** The 5-minute [Quickstart](https://vaadin.com/quickstart) walks you from here to your first running app, a live code change, and an AI-assisted edit with Copilot.
+It works by extending Vaadin's Dev Loop daemon (`.vaadin/vaadin-dev`) with an event journal.
+The details are in [`devloop/README.md`](devloop/README.md). A longer write-up with
+screenshots: [Dev Loop, Extended](https://claude.ai/artifact/35vYhWGyLQN62T233hCpUR). It also
+shows UI driving (`vdx ui`) and Observability Kit findings (`vdx o11y`); those aren't in this
+repository yet and will come back.
 
----
+> **Prototype.** The daemon is a fork of Flow's `flow-devloop-daemon` and reaches Copilot by
+> impersonating an IDE plugin. Expect rough edges; see
+> [Known issues](devloop/README.md#known-issues-and-rough-edges).
 
-## Fastest start — no plugin needed
+## Prerequisites
 
-From the project folder:
+- Linux or macOS (the scripts are bash; Windows isn't supported yet).
+- JDK 21 or newer, with `javac`: the extended daemon is built from source on first use.
+- Python 3, for the Claude Code hooks.
+- [Claude Code](https://claude.com/claude-code).
+- A browser on the same machine. Open the app at `http://localhost:8080`: Copilot's annotation
+  "Add" button only works in a secure context, and `localhost` counts as one.
+- Copilot may ask you to sign in with a vaadin.com account.
 
-```bash
-./mvnw spring-boot:run        # Windows: mvnw.cmd spring-boot:run
-```
+Maven isn't needed: `./mvnw` downloads it.
 
-No system Maven required — the wrapper is included. Then open **http://localhost:8080**.
+## Try it in five minutes
 
-The first start takes ~30 seconds while Maven downloads dependencies. You'll get a runnable **Task List** app: a data grid (Description / Due Date / Creation Date), a Create button, and an empty-state message. When you see that, you're running.
+1. **Clone and start Claude in the repository root.** Claude Code only loads the hooks from
+   the directory it starts in.
 
-> **Port 8080 already in use?** Stop the other process, or set `server.port=8081` in `src/main/resources/application.properties` and open that port instead.
->
-> **To stop the app:** press `Ctrl+C` in the terminal (or the red Stop button if you launched from your IDE).
+   ```bash
+   git clone https://github.com/emarc/devloop-extended-demo.git && cd devloop-extended-demo
+   claude
+   ```
 
-## Optional upgrade — instant hotswap
+   Then say **"run the project"**. Claude runs `.vaadin/vaadin-dev start`, which builds the
+   extended daemon and starts the app on port 8080 (`PORT=8081` before the first command to
+   change it). The first start takes a minute or two while Maven downloads dependencies.
 
-Running with `spring-boot:run` works, but Java code changes need a restart. For **live reload** — edit Java, see it in the browser without restarting — install the **Vaadin plugin** and start the app through it:
+2. **Change the UI with Copilot.** Open http://localhost:8080, open Copilot (the Vaadin
+   button at the bottom-right), select a component and ask for a change: "make the Create button say Add task", "add a heading
+   above the grid". Copilot's edits go live right away.
 
-- **IntelliJ IDEA:** install *Vaadin* from the JetBrains Marketplace → **Debug using Hotswap Agent** (dropdown next to Run). *Just installed it? Let IntelliJ finish indexing, or restart it, if the menu item isn't there yet.*
-- **VS Code:** install the *Vaadin* extension → **Vaadin: Debug using Hotswap Agent** from the command palette.
-- **Eclipse:** install the *Vaadin* plugin → right-click the project → **Run As → Vaadin Application**.
+3. **Add a UI annotation.** In Copilot's annotations mode, select a component and write a
+   note, such as "this should be primary-colored". Annotations are a to-do list for Claude; it
+   collects them and fixes them in one batch when you ask.
 
-This is what makes the edit-and-see-it loop feel instant — and it's required for the AI edits in [Vaadin Copilot](https://vaadin.com/docs/latest/tools/copilot).
+4. **Send Claude any prompt.** "What's new?" works, and so does real work. Claude answers
+   your prompt, reviews what you and Copilot changed (formatting, generated variable names,
+   spacing, typos), and ends with a short "Dev loop" note: what changed, what it found, any
+   question. Then say **"fix the annotations"**.
 
-> **Run the app one way at a time.** `./mvnw spring-boot:run`, your IDE, and the Dev Loop all serve on port 8080, so stop one before starting another. If an AI coding agent edits the code for you, use the Dev Loop instead of the IDE — see [Agentic Development](#agentic-development).
+Want to see an error reported? Break something in a view so that a click throws, click it,
+and send a prompt: the briefing carries the exception's root cause and the first frame in
+your code.
 
----
+## What's where
 
-## Day 2: make your task list interactive (~10 min)
+| Path | What |
+|---|---|
+| `src/` | The generated Vaadin app: a task list (`com.porotype.examplefeature`). |
+| `devloop/` | The extended daemon (`daemon/`), its build (`build.sh`) and client (`vdx`). [README](devloop/README.md). |
+| `.vaadin/vaadin-dev` | The stock Dev Loop client from `mvn vaadin:install-dev-cli`, with a marked block at the top that hands every command to `devloop/vdx`. Reinstalling the CLI removes that block. |
+| `.claude/hooks/devloop_events.py`, `.claude/settings.json` | The hooks: the briefing at each prompt, and the marks that attribute Claude's own edits. |
+| `.claude/skills/review-dev-changes/` | What Claude does with the briefing: review, fix silently or ask, batch the annotations, keep your changes in their own commit. |
+| `.claude/skills/vaadin-devloop/` | The stock Dev Loop skill (generated): how Claude starts the app and applies its edits. |
+| `CLAUDE.md` | Project instructions for Claude. |
 
-Your app lists tasks. Let's make a row do something when you click it.
+## Good to know
 
-**1. Add a click listener (by hand).** In `src/main/java/com/porotype/examplefeature/ui/TaskListView.java`, add this after the `taskGrid.addColumn(...)` block:
-
-```java
-taskGrid.addItemClickListener(event ->
-    Notification.show("Due: " + Optional.ofNullable(event.getItem().getDueDate())
-        .map(LocalDate::toString)
-        .orElse("no due date")));
-```
-
-Add the import: `import java.time.LocalDate;`
-
-Save, restart the app unless you started it with Hotswap Agent or the Dev Loop, and click a task — a notification shows its due date. That's a server-side event handler, in pure Java.
-
-**2. Let Copilot finish it.** Open Copilot (bottom-right toolbar → **Edit mode**), click the AI assistant, and try:
-
-> When a task row is clicked, open a dialog showing its description, due date, and creation date, with a Close button.
-
-Copilot writes the dialog into `TaskListView.java` for you. Open the file — your new code is right there.
-
----
-
-## Ask your AI assistant about Vaadin (optional)
-
-If you use Claude Code, Cursor, or another AI coding assistant, connect it to the **Vaadin MCP server** so it answers against real Vaadin docs and the exact API of your installed version — instead of guessing from outdated training data.
-
-The one-time setup is described in [Vaadin MCP server](https://vaadin.com/docs/latest/building-apps/mcp).
-
----
-
-## Agentic Development
-
-If you develop with an AI coding agent, such as Claude Code or Codex, enable the Vaadin Dev Loop. It lets the agent make
-its changes live in the running application with a single command, and tells it whether they took effect, without
-restarting the application or checking screenshots. To enable it, run:
-
-```bash
-./mvnw vaadin:install-dev-cli
-```
-
-This installs the Dev Loop CLI into `.vaadin/`, and skills that teach your agent how to use it into `.agents/skills/` and
-`.claude/skills/`. Commit these files with the rest of the project, and run the command again after upgrading Vaadin.
-
-Once it is enabled, start the application through the Dev Loop, and leave the page open in the browser:
-
-```bash
-.vaadin/vaadin-dev start      # Windows: .vaadin\vaadin-dev.cmd start
-```
-
-The Dev Loop owns the application process and brings its own Hotswap Agent, so do not also start the application with
-`./mvnw spring-boot:run` or an IDE run or debug configuration: the second launcher fights the Dev Loop for port 8080. Use
-`.vaadin/vaadin-dev status` to see whether the application is running, and `.vaadin/vaadin-dev restart` instead of
-restarting it from the IDE.
-
-The Dev Loop is a preview feature. To learn more, including how to give your agent access to the Vaadin documentation,
-see the [Dev Loop tutorial](https://vaadin.com/docs/v25/building-apps/agentic-development/dev-loop-tutorial).
-
----
-
-## Build for production
-
-```bash
-./mvnw package
-java -jar target/*.jar
-```
-
-To build a Docker image, run:
-
-```bash
-docker build -t my-application:latest .
-```
-
-If you use commercial components, pass the license key as a build secret:
-
-```bash
-docker build --secret id=proKey,src=$HOME/.vaadin/proKey -t my-application:latest .
-```
-
-To run the image, run:
-
-```bash
-docker run -p 8080:8080 -m 2g my-application:latest
-```
-
-The application is then available at http://localhost:8080. The `-m` option sets the memory limit of the container. The
-application uses up to 75% of it for the Java heap, which holds the UI state of all users, so adjust the limit to fit
-your application.
-
-## Learn more
-
-- [Vaadin Quickstart](https://vaadin.com/quickstart) — the 5-minute getting-started path
-- [Components](https://vaadin.com/docs/latest/components) — 50+ UI components, all callable from Java
-- [Vaadin Copilot](https://vaadin.com/docs/latest/tools/copilot) — visual + AI editing in the browser
-- [Full documentation](https://vaadin.com/docs)
+- Start the app through `.vaadin/vaadin-dev`, not `./mvnw spring-boot:run` or an IDE run
+  configuration. The daemon has to own the app process for anything to be journaled and for
+  Copilot's edits to go live.
+- If IntelliJ or VS Code with the Vaadin plugin has this project open, Copilot may talk to that
+  plugin instead of the daemon. Its edits then show as "edited outside" and aren't applied
+  automatically. Untested so far.
+- Edits you save in an IDE are journaled but not applied: editors save half-finished code.
+  Ask Claude to apply, or run `.vaadin/vaadin-dev apply`.
+- Environment variables the app needs must be exported before the first `vaadin-dev`
+  command, since the app inherits the daemon's environment. To change them,
+  `.vaadin/vaadin-dev shutdown` first.
+- The journal lives in `target/devloop/`, so `mvn clean` resets it.

@@ -12,3 +12,11 @@
 node_modules/
 src/main/frontend/generated/
 vite.generated.ts
+
+# Dev loop prototype (devloop/)
+# The extended daemon jar, built on first use by devloop/vdx
+/devloop/target/
+# The Copilot bridge publishes its IDE-plugin dot file here
+**/.eclipse/.copilot-plugin
+# Review notes the agent keeps between sessions (see the review-dev-changes skill)
+**/.vaadin/review-notes.md

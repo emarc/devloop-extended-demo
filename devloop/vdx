@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# vdx - the stock vaadin-dev client, pointed at the extended daemon jar.
+#
+#   devloop/vdx [--app <dir>] <command> ...     (default app: the repository root)
+#
+# Everything vaadin-dev does, plus: events, watch, emit, trigger, and a Copilot
+# bridge that attributes Copilot's file writes. See devloop/README.md.
+# Rebuilds the jar when a daemon source is newer than it. A daemon that is
+# already running keeps the jar it started with: `vdx shutdown` first to switch.
+set -uo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+jar="$here/target/flow-devloop-daemon-x.jar"
+if [[ ! -f "$jar" ]] || [[ -n "$(find "$here/daemon/src" -newer "$jar" -type f -print -quit)" ]]; then
+    "$here/build.sh" >/dev/null || exit 70
+fi
+app="${VAADIN_DEV_APP:-$here/..}"
+args=()
+while (( $# )); do
+    case "$1" in
+        --app) shift; app="$1" ;;
+        --app=*) app="${1#--app=}" ;;
+        *) args+=("$1") ;;
+    esac
+    shift
+done
+app="$(cd "$app" && pwd)" || exit 64
+# Commands the app contributes through the daemon's extension seam get their
+# arguments base64-encoded, so quoting survives the client's join-on-space.
+set -- ${args+"${args[@]}"}
+# A daemon that is already up keeps the jar it was started with, so a stock one
+# (spawned by a client without the override) would answer every command here.
+handshake="$app/.vaadin/daemon.properties"
+if [[ "${1:-}" != shutdown && -f "$handshake" ]]; then
+    pid="$(sed -n 's/^pid=//p' "$handshake")"
+    if [[ -n "$pid" ]] && cmd="$(ps -o args= -p "$pid" 2>/dev/null)" \
+            && [[ "$cmd" != *flow-devloop-daemon-x.jar* ]]; then
+        echo "vdx: the running daemon (pid $pid) is the stock one, not the extended one;" \
+             "run 'devloop/vdx shutdown' and start again" >&2
+    fi
+fi
+case "${1:-}" in
+    ""|-h|--help|help|status|apply|start|stop|restart|shutdown|ping|redefine|events|watch|emit|trigger) ;;
+    *)
+        verb="$1"; shift
+        payload="$(for a in "$@"; do printf '%s\x1f' "$a"; done)"
+        payload="${payload%$'\x1f'}"
+        args=("$verb" --b64 "$(printf '%s' "$payload" | base64 | tr -d '\n')")
+        ;;
+esac
+export VAADIN_DEV_DAEMON_OPTS="-Dvaadin.dev.daemonJar=$jar${VAADIN_DEV_DAEMON_OPTS:+ $VAADIN_DEV_DAEMON_OPTS}"
+exec "$app/.vaadin/vaadin-dev" --app "$app" ${args+"${args[@]}"}
