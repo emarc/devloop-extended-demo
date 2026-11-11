@@ -55,11 +55,11 @@ Maven isn't needed: `./mvnw` downloads it.
    spacing, typos), and ends with a short "Dev loop" note: what changed, what it found, any
    question, as numbered actions you can answer with "all" or "1 and 3".
 
-5. **Send the annotations to Claude from the browser.** Copilot's toolbar has a **Claude**
-   panel (the sparkles icon, in edit and test mode) listing the pending annotations. Add a
-   note if you like and press **Send to Claude**. Claude keeps a dev-loop watch on these
-   presses once the app runs, so it starts on them right away, even while idle; if no watch
-   is running, it picks them up at your next prompt.
+5. **Hand over from the browser.** Copilot's toolbar has a **Claude** panel (the sparkles
+   icon, in edit and test mode) with one button: **Your turn, Claude**. Press it when you're
+   done: Claude reviews what you and Copilot changed and fixes all pending annotations. It
+   keeps a dev-loop watch on these presses once the app runs, so it starts right away, even
+   while idle; if no watch is running, it picks the hand-over up at your next prompt.
 
 Want to see an error reported? Open **Error Demo** in the menu and click "Add sample tasks":
 it has a bug that throws on the server. Send Claude a prompt, and the briefing carries the

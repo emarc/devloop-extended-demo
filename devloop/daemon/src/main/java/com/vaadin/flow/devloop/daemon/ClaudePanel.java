@@ -20,30 +20,29 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 import com.sun.net.httpserver.HttpExchange;
 
 /**
- * The browser side of "send the annotations to Claude": serves a Copilot panel
- * plugin and records the developer's request in the journal, where Claude's
- * {@code vdx watch} on {@code copilot.annotations.fix-requested} - or the next
- * prompt's briefing - hands it to Claude.
+ * The browser side of "your turn, Claude": serves a Copilot panel plugin whose
+ * one button records {@code developer.your-turn} in the journal. Claude's
+ * {@code vdx watch} on that type - or the next prompt's briefing - hands it to
+ * Claude, and its review-dev-changes skill says what the hand-over means:
+ * review what changed, fix every pending annotation, report.
+ * <p>
+ * The event carries no text from the browser. A press can only say "now",
+ * never what to do, so nothing a page posts here can steer Claude.
  * <p>
  * Served under {@code /devloop/} on the Copilot bridge's loopback port:
  * <ul>
  * <li>{@code GET copilot-plugin.js} - the panel, which the app adds to its
  * page when it is given {@value #PLUGIN_PROPERTY};</li>
- * <li>{@code GET annotations} - the pending annotations, for the panel;</li>
- * <li>{@code POST fix-annotations} - {@code {message?, view?}}: emits
- * {@code copilot.annotations.fix-requested}.</li>
+ * <li>{@code GET status} - {@code {pendingAnnotations}}, across all views;</li>
+ * <li>{@code POST your-turn} - emits {@code developer.your-turn}.</li>
  * </ul>
- * Only pages from a loopback origin may call it: what is posted here ends up in
- * Claude's context, so another site must not be able to post on the developer's
- * behalf.
+ * Only pages from a loopback origin may call it, so another site can't hand
+ * over on the developer's behalf. In practice the caller is the app, which
+ * forwards its own pages' requests (the browser may not reach this port).
  * <p>
  * Prototype extension, not part of upstream Flow.
  */
@@ -84,9 +83,15 @@ final class ClaudePanel {
             }
             switch (method + " " + path) {
             case "GET copilot-plugin.js" -> plugin(exchange);
-            case "GET annotations" -> send(exchange, 200, "application/json",
-                    "{\"pending\":" + pendingJson(annotations.pending()) + "}");
-            case "POST fix-annotations" -> fixRequested(exchange);
+            case "GET status" -> send(exchange, 200, "application/json",
+                    "{\"pendingAnnotations\":" + annotations.pending().size()
+                            + "}");
+            case "POST your-turn" -> {
+                exchange.getRequestBody().readAllBytes();
+                Events.emit("developer.your-turn", "developer",
+                        "Your turn: the developer handed over to Claude");
+                send(exchange, 200, "application/json", "{}");
+            }
             default -> send(exchange, 404, "text/plain", "not found");
             }
         }
@@ -103,50 +108,6 @@ final class ClaudePanel {
             send(exchange, 200, "text/javascript",
                     new String(in.readAllBytes(), StandardCharsets.UTF_8));
         }
-    }
-
-    private void fixRequested(HttpExchange exchange) throws IOException {
-        Map<String, Object> request;
-        try (InputStream in = exchange.getRequestBody()) {
-            String body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            request = body.isBlank() ? Map.of() : MiniJson.object(body);
-        } catch (RuntimeException e) {
-            send(exchange, 400, "text/plain", "expected a JSON object");
-            return;
-        }
-        List<Annotations.Note> pending = annotations.pending();
-        String message = request.get("message") instanceof String s
-                ? s.strip()
-                : "";
-        Map<String, String> data = new LinkedHashMap<>();
-        data.put("count", String.valueOf(pending.size()));
-        data.put("ids", String.join(",",
-                pending.stream().map(Annotations.Note::id).toList()));
-        if (!message.isEmpty()) {
-            data.put("message", message);
-        }
-        if (request.get("view") instanceof String view) {
-            data.put("view", view);
-        }
-        Events.emit("copilot.annotations.fix-requested", "developer",
-                "Send to Claude: fix " + pending.size()
-                        + " pending annotation(s)"
-                        + (message.isEmpty() ? "" : " - \"" + message + "\""),
-                List.of(), data);
-        send(exchange, 200, "application/json",
-                "{\"count\":" + pending.size() + "}");
-    }
-
-    private static String pendingJson(List<Annotations.Note> notes) {
-        List<String> items = new ArrayList<>();
-        for (Annotations.Note note : notes) {
-            items.add("{\"id\":\"" + Json.escape(note.id())
-                    + "\",\"view\":\"" + Json.escape(note.view())
-                    + "\",\"content\":\"" + Json.escape(note.content())
-                    + "\",\"components\":" + Json.strings(note.components())
-                    + "}");
-        }
-        return "[" + String.join(",", items) + "]";
     }
 
     private static boolean isLoopback(String origin) {

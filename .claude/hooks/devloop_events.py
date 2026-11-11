@@ -124,27 +124,18 @@ def pending_annotations():
     return notes
 
 
-def fix_requests(evs):
-    """'Send to Claude' presses in Copilot's Claude panel: the developer asking
-    for the annotation batch fix, so they are requests, not news."""
-    # Claude's watch may have handled one already: a request whose annotations
-    # are all resolved by now is done.
-    pending = {a.get("id") for _, a in annotations()}
-    out = []
-    for e in evs:
-        if e["type"] != "copilot.annotations.fix-requested":
-            continue
-        d = e["data"]
-        ids = [i for i in (d.get("ids") or "").split(",") if i]
-        if ids and not pending.intersection(ids):
-            continue
-        line = (f'The developer pressed "Send to Claude" in Copilot at {e["at"][11:16]} UTC: '
-                f'fix the pending UI annotations now (ids {d.get("ids") or "none"}), per the '
-                f'review-dev-changes skill.')
-        if d.get("message"):
-            line += f' Their message: "{d["message"]}"'
-        out.append(line)
-    return out
+def your_turn(evs):
+    """The latest "Your turn, Claude" press in Copilot's Claude panel, or None.
+
+    Only presses after the review cursor count: handling one ends by marking the
+    journal reviewed past it, so a hand-over Claude's watch already handled is
+    not repeated here."""
+    turns = [e for e in evs if e["type"] == "developer.your-turn"]
+    if not turns:
+        return None
+    return (f'The developer pressed "Your turn, Claude" in Copilot at {turns[-1]["at"][11:16]} UTC '
+            f'(#{turns[-1]["seq"]}): they handed over. Do the hand-over per the review-dev-changes '
+            f'skill: review the changes below, fix all pending annotations, report.')
 
 
 def describe(path, f):
@@ -168,8 +159,9 @@ def briefing():
     windows = bash_windows(review_since)
     lines = []
 
-    requested = fix_requests(new["events"])
-    lines += requested
+    requested = your_turn(review["events"] if review else [])
+    if requested:
+        lines.append(requested)
 
     problems = [e for e in new["events"] if e["type"] in PROBLEMS]
     if problems:
@@ -208,7 +200,7 @@ def briefing():
          "fix silently only what the skill allows, otherwise end your reply with one short "
          "'Dev loop' note: what changed, then numbered proposed actions (cleanups, the "
          "annotation batch, fixes) the developer can answer with 'all' or '1 and 3'. "
-         "Fix annotations only when asked (a 'Send to Claude' press is asking)."])
+         "Fix annotations only when asked (a 'Your turn' press is asking)."])
 
 
 def midturn():
@@ -219,7 +211,8 @@ def midturn():
     changes = developer_changes(new["events"], windows)
     problems = [e for e in new["events"] if e["type"] in PROBLEMS]
     added = [e for e in new["events"] if e["type"].startswith("copilot.annotation.")]
-    bits = fix_requests(new["events"])
+    turn = your_turn(new["events"])
+    bits = [turn + " Finish the current step first."] if turn else []
     if changes:
         bits.append("the developer changed " + ", ".join(os.path.basename(p) for p in changes)
                     + " (re-read before editing; review at the end of this task)")

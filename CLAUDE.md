@@ -9,9 +9,9 @@ you were idle. Design and command reference: `devloop/README.md`.
 - "Run the project" / "start the app" means `.vaadin/vaadin-dev start` (port 8080 unless
   `PORT` or `server.port` says otherwise). That script hands off to `devloop/vdx`, which builds
   and runs the extended daemon jar on first use.
-- Once the app is running, keep a watch on "Send to Claude" presses from Copilot: a Monitor on
-  `devloop/vdx watch --type copilot.annotations.fix-requested` (details in the
-  `review-dev-changes` skill). Re-arm it when it expires.
+- Once the app is running, keep a watch on "Your turn, Claude" presses from Copilot: a Monitor
+  on `devloop/vdx watch --type developer.your-turn` (details in the `review-dev-changes`
+  skill). Re-arm it when it expires.
 - Don't start the app through Maven (`./mvnw spring-boot:run`) or an IDE run configuration: the
   daemon must own the app process, or nothing is journaled and Copilot edits don't go live.
 - After editing source, `.vaadin/vaadin-dev apply` (see the `vaadin-devloop` skill). Copilot's

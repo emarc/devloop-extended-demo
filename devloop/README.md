@@ -79,7 +79,7 @@ The events the journal records, each with `seq`, `at`, `type`, `source`, `summar
 | `copilot.apply` | daemon | The bridge applying a Copilot write 500 ms after it lands, as an IDE plugin's hot-swap would. Without it, Copilot reports success and nothing goes live. |
 | `trigger.NAME` | app | A registered log pattern matched. |
 | `classes.stale` | daemon | `start` found `target/classes` older than the sources, or classes whose source is gone (changed while no daemon ran: a `git checkout`, a revert). Orphans are deleted and the start recompiles; see `StaleClasses`. |
-| `copilot.annotations.fix-requested` | developer | "Send to Claude" in Copilot's Claude panel (`ClaudePanel`), with the pending annotation ids and the developer's message. Claude's `vdx watch` on this type wakes it at once; without a watch, the next prompt's briefing carries it. |
+| `developer.your-turn` | developer | "Your turn, Claude" in Copilot's Claude panel (`ClaudePanel`). No data: what a hand-over means is in the `review-dev-changes` skill. Claude's `vdx watch` on this type wakes it at once; without a watch, the next prompt's briefing carries it. |
 | `agent.bash` | agent | Start/end marks around Claude's Bash calls, for attribution (below). |
 
 ### How a change gets its author
@@ -155,11 +155,13 @@ command, so they stay silent.
   posted reaches Claude's context. The script registers a Copilot panel through
   `window.Vaadin.copilot.plugins`, the API Copilot's own panels use, after Copilot's bootstrap
   (which resets that array). The panel shows in Copilot's edit and test modes.
-- **Delivery is the journal:** the press is a `copilot.annotations.fix-requested` event. Claude
-  keeps `vdx watch --type copilot.annotations.fix-requested` running under its Monitor tool
-  (re-armed with `--since` when the monitor expires, at most every 30 minutes), so a press
-  reaches it within a moment, even while it's idle. Without a watch, the next prompt's briefing
-  carries it. The briefing leaves out requests whose annotations are all resolved.
+- **Delivery is the journal:** the press is a `developer.your-turn` event with no text, so a
+  page can only say "now", never what to do; the skill defines the hand-over (review the
+  changes, fix all pending annotations, report). Claude keeps `vdx watch --type
+  developer.your-turn` running under its Monitor tool (re-armed with `--since` when the
+  monitor expires, at most every 30 minutes), so a press reaches it within a moment, even
+  while it's idle. Without a watch, the next prompt's briefing carries it, if it is newer
+  than the `review` cursor; handling it moves the cursor past it.
 
 ### The extension seam
 
