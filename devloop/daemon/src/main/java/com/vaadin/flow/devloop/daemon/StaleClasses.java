@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * Makes {@code start} run the sources on disk rather than whatever
+ * Makes {@code start} and {@code restart} run the sources on disk rather than whatever
  * {@code target/classes} was last built from.
  * <p>
  * Upstream, {@code start} runs Maven's {@code compile} only when the classpath
@@ -34,7 +34,10 @@ import java.util.stream.Stream;
  * {@code apply} afterwards catches up modified sources, but never removes the
  * class of a deleted one, so a reverted {@code @Route} view stays live.
  * <p>
- * Before a start this checks every module in the reactor: a source newer than
+ * The same goes for {@code restart}: sources pulled or edited outside an
+ * {@code apply} while the app runs are not compiled by it either.
+ * <p>
+ * Before a start or restart this checks every module in the reactor: a source newer than
  * its class, or a resource newer than its copy, makes the classes stale; a
  * top-level class whose source is gone is an orphan and is deleted, with its
  * nested classes. Either way the classpath stamp is invalidated, so the start

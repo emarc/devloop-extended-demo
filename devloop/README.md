@@ -196,7 +196,7 @@ Observability Kit findings (`vdx o11y`) from the original prototype come back.
 - **Upstream `start` runs stale classes** when sources changed while no daemon was running:
   it recompiles only when a pom changed, and `apply` never removes the class of a deleted
   source (a reverted `@Route` view stays live). `StaleClasses` fixes this here, before each
-  `start`. Its orphan check is name-based: a second top-level class in one file looks like an
+  `start` and `restart` (`restart` had the same problem with a `git pull` while the app ran). Its orphan check is name-based: a second top-level class in one file looks like an
   orphan and costs a recompile on every start.
 - **`-XX:HotswapAgent` in `JAVA_TOOL_OPTIONS`** (some JetBrains Runtime setups set it for every
   JVM) crashes the `jar` tool and makes the app load HotswapAgent twice (`ClassFormatError:

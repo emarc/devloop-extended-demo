@@ -503,6 +503,7 @@ public final class Daemon {
             }
             case "restart" -> {
                 app.stop();
+                reconcileStaleClasses(log);
                 refreshEventSources();
                 AppProcess.Startup startup = app.start(log, "restart",
                         parseJvmArgsOption(args).orElse(null));
