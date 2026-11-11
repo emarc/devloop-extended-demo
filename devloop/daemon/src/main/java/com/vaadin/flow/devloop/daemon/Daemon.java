@@ -487,6 +487,7 @@ public final class Daemon {
                 out.println("EXIT " + tx.outcome.exitCode);
             }
             case "start" -> {
+                reconcileStaleClasses(log);
                 refreshEventSources();
                 AppProcess.Startup startup = app.start(log, "start",
                         parseJvmArgsOption(args).orElse(null));
@@ -570,6 +571,24 @@ public final class Daemon {
     // ---------------------------------------------------------------------
     // Prototype extension: event verbs.
     // ---------------------------------------------------------------------
+
+    /**
+     * Sources changed while no daemon was running would otherwise not reach a
+     * start at all; see {@link StaleClasses}.
+     */
+    private void reconcileStaleClasses(Launch.Log log) {
+        if (!app.isIdle()) {
+            return;
+        }
+        List<String> found = StaleClasses.reconcile(launch.reactor());
+        if (found.isEmpty()) {
+            return;
+        }
+        found.forEach(line -> log.line("classes out of date - " + line));
+        Events.emit("classes.stale", "daemon",
+                "sources changed since the last build; recompiling: "
+                        + String.join("; ", found));
+    }
 
     private void recordStartup(String kind, AppProcess.Startup startup) {
         Events.emit(startup.ok() ? "app.started" : "app.start-failed",

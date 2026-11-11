@@ -78,6 +78,7 @@ The events the journal records, each with `seq`, `at`, `type`, `source`, `summar
 | `copilot.annotation.added` / `.edited` / `.resolved` / `.removed` | copilot | One per annotation in `vaadin-copilot-comments.json`, with its text, view and selected components (`Annotations`). |
 | `copilot.apply` | daemon | The bridge applying a Copilot write 500 ms after it lands, as an IDE plugin's hot-swap would. Without it, Copilot reports success and nothing goes live. |
 | `trigger.NAME` | app | A registered log pattern matched. |
+| `classes.stale` | daemon | `start` found `target/classes` older than the sources, or classes whose source is gone (changed while no daemon ran: a `git checkout`, a revert). Orphans are deleted and the start recompiles; see `StaleClasses`. |
 | `agent.bash` | agent | Start/end marks around Claude's Bash calls, for attribution (below). |
 
 ### How a change gets its author
@@ -169,6 +170,11 @@ Observability Kit findings (`vdx o11y`) from the original prototype come back.
   root.
 - **No Windows support for `vdx`.** The hand-off block is only in the bash `vaadin-dev`;
   `vaadin-dev.cmd`/`.ps1` still spawn the stock daemon.
+- **Upstream `start` runs stale classes** when sources changed while no daemon was running:
+  it recompiles only when a pom changed, and `apply` never removes the class of a deleted
+  source (a reverted `@Route` view stays live). `StaleClasses` fixes this here, before each
+  `start`. Its orphan check is name-based: a second top-level class in one file looks like an
+  orphan and costs a recompile on every start.
 - **`-XX:HotswapAgent` in `JAVA_TOOL_OPTIONS`** (some JetBrains Runtime setups set it for every
   JVM) crashes the `jar` tool and makes the app load HotswapAgent twice (`ClassFormatError:
   Duplicate method name "$$ha$…"`). `vdx` and `build.sh` drop that one flag. The stock daemon
@@ -185,14 +191,16 @@ Observability Kit findings (`vdx o11y`) from the original prototype come back.
   as here.
 - Copilot → daemon write notifications, replacing the IDE-plugin impersonation.
 - Hook recipes for agents in the installed `vaadin-devloop` skill.
+- `start` should compile sources that changed while no daemon ran, and drop classes whose
+  source is gone (`apply` too).
 - Ignore (or strip) `-XX:HotswapAgent` from an inherited `JAVA_TOOL_OPTIONS` when launching the
   app, since the daemon adds HotswapAgent itself.
 
 ## Files
 
 - `daemon/src/main/java/com/vaadin/flow/devloop/daemon/`: new are `Events`, `LogTail`,
-  `SourceWatch`, `Attribution`, `CopilotBridge`, `Annotations`, `MiniJson`. Changed are
-  `Daemon` (verbs, event emission, extension seam) and `AppProcess` (crash event). Everything
+  `SourceWatch`, `Attribution`, `CopilotBridge`, `Annotations`, `StaleClasses`, `MiniJson`.
+  Changed are `Daemon` (verbs, event emission, extension seam, the stale-class check on start) and `AppProcess` (crash event). Everything
   else is untouched upstream `25.4.0-alpha5` source.
 - To rebase onto a newer upstream: take `flow-devloop-daemon/src/main` at the new tag, and
   reapply `git diff <old tag> -- Daemon.java AppProcess.java` from this tree plus the new
